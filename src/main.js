@@ -357,7 +357,11 @@ function renderGateResult(gateResult, result, mode) {
     return;
   }
   els.gateStatus.textContent = `GATE / ${gateResult.reason.toUpperCase().replaceAll('_', ' ')}`;
-  if (gateResult.applied || state.dispatchCount > 0) return;
+  if (gateResult.applied) {
+    els.signalFooter.textContent = 'Pivot gate redirected the simulated agent.';
+    return;
+  }
+  if (state.dispatchCount > 0) return;
   if (result.kind === 'pivot') {
     els.handoff.innerHTML = '<span class="handoff-symbol">↳</span><span>Pivot held by gate</span>';
     els.dispatchCopy.textContent = 'The scorer suggested a pivot. The gate did not dispatch it.';

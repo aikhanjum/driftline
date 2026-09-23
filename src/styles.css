@@ -47,7 +47,7 @@ textarea { resize: vertical; }
 .text-button:hover { color: var(--vermillion); border-color: var(--vermillion); }
 .text-button span { font-size: 15px; padding-left: 7px; }
 
-.hero { display: grid; grid-template-columns: minmax(0, 1.26fr) minmax(360px, .74fr); gap: clamp(30px, 5vw, 90px); align-items: end; padding: clamp(42px, 5vw, 76px) 0 clamp(38px, 5vw, 70px); }
+.hero { display: grid; grid-template-columns: minmax(0, 1.26fr) minmax(360px, .74fr); gap: clamp(30px, 5vw, 90px); align-items: end; padding: clamp(38px, 4vw, 58px) 0 clamp(28px, 3.2vw, 48px); }
 .hero-copy { min-width: 0; }
 .eyebrow { display: flex; align-items: center; gap: 13px; color: var(--vermillion); margin: 0 0 24px; }
 .eyebrow-line { width: 37px; border-top: 1.5px solid var(--vermillion); }
@@ -57,7 +57,7 @@ textarea { resize: vertical; }
 .hero-link { display: inline-flex; align-items: center; gap: 18px; text-decoration: none; font-size: 13px; font-weight: 800; border-bottom: 1.5px solid var(--ink); padding-bottom: 6px; }
 .hero-link span { color: var(--vermillion); font-size: 21px; line-height: 10px; transition: transform .22s ease; }
 .hero-link:hover span { transform: translate(3px, 3px); }
-.hero-graphic { height: clamp(280px, 27vw, 370px); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: #ebe9e1; display: flex; flex-direction: column; }
+.hero-graphic { height: clamp(255px, 23vw, 320px); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: #ebe9e1; display: flex; flex-direction: column; }
 .graphic-top, .graphic-bottom { display: flex; justify-content: space-between; padding: 13px 17px; font-family: var(--mono); font-size: 9px; letter-spacing: .075em; }
 .graphic-top { border-bottom: 1px solid #d4d5ca; }
 .graphic-bottom { border-top: 1px solid #d4d5ca; color: #717970; }
@@ -72,7 +72,7 @@ textarea { resize: vertical; }
 .trajectory-label, .trajectory-small { fill: #b64631; font: 500 11px var(--mono); letter-spacing: 1px; }
 .trajectory-small { fill: #889088; font-size: 9px; }
 
-.workbench { padding-top: 27px; scroll-margin-top: 28px; }
+.workbench { padding-top: 20px; scroll-margin-top: 28px; }
 .workbench-heading-row { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 19px; }
 .section-index { color: var(--vermillion); }
 .workbench h2 { font-family: var(--serif); font-size: clamp(30px, 3vw, 45px); font-weight: 400; line-height: 1.1; margin: 9px 0 0; letter-spacing: -.025em; }
@@ -254,7 +254,7 @@ textarea { resize: vertical; }
   .site-header { height: 68px; }
   .brand-name { font-size: 22px; }
   .brand-mark { width: 34px; height: 34px; }
-  .hero { padding: 41px 0 46px; }
+  .hero { padding: 34px 0 34px; }
   .hero h1 { font-size: clamp(55px, 12.7vw, 79px); }
   .hero-description { font-size: 15px; }
   .workbench { padding-top: 14px; }
