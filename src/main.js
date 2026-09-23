@@ -506,4 +506,15 @@ async function initializeScorer() {
   }
 }
 
-void initializeScorer();
+if (nodeMode || cppMode || !('IntersectionObserver' in window)) {
+  void initializeScorer();
+} else {
+  // Watching a captured run should not download the separate browser model.
+  setEngineStatus('loading', 'Scorer loads when the workbench opens');
+  const observer = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    observer.disconnect();
+    void initializeScorer();
+  }, { rootMargin: '160px' });
+  observer.observe(document.querySelector('#workbench'));
+}

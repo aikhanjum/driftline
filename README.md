@@ -128,6 +128,7 @@ npm run build
 npm run eval:cpp -- --profile conservative --parity-only
 npm run eval:cpp -- --profile early --parity-only
 npm run eval:holdout -- --backend cpp --profile early
+npm run eval:verification
 npm run test:live
 ```
 

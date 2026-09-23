@@ -89,6 +89,14 @@ Run latency measurements separately on an otherwise idle machine. Native round t
 
 ## Verify real stream correction
 
+Audit optional final requirement verification separately from the default detector profile tables.
+
+```sh
+npm run eval:verification
+```
+
+This compares default and verified decisions across both frozen corpora in C++ and JavaScript with the early profile. It rejects changed corpus hashes, new approvals of labeled pivots or uncertain snapshots, and backend decision mismatches. The recorded run added one valid approval and zero pivot or uncertain approvals per backend, with zero mismatches across 174 decision comparisons. Two existing approvals of uncertain snapshots remain visible in both modes. These results are development evidence and do not establish general final verification accuracy.
+
 The optional smoke test uses a local Qwen3 0.6B generator. Start it in a separate terminal after native setup.
 
 ```sh
