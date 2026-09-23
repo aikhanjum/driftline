@@ -2,8 +2,10 @@ import { performance } from 'node:perf_hooks';
 import { defineConfig } from 'vite';
 import { inferSignals, loadClassifier } from './src/semantic-model.js';
 import { makeDecision } from './src/scorer-core.js';
+import { NativeBridge } from './native/bridge.js';
 
 const nodeMode = process.env.VITE_DRIFTLINE_FAST === '1';
+const cppMode = process.env.VITE_DRIFTLINE_CPP === '1';
 
 function send(res, status, body) {
   res.writeHead(status, {
@@ -64,6 +66,35 @@ function localNodeScorer() {
   };
 }
 
+function localCppScorer() {
+  const bridge = new NativeBridge();
+  return {
+    name: 'driftline-local-cpp-scorer',
+    configureServer(server) {
+      server.httpServer?.on('close', () => bridge.dispose());
+      server.middlewares.use('/api/ready', async (req, res) => {
+        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed.' });
+        try {
+          await bridge.ready();
+          send(res, 200, { engine: 'cpp', ready: true });
+        } catch (error) {
+          send(res, 500, { error: error instanceof Error ? error.message : String(error) });
+        }
+      });
+      server.middlewares.use('/api/score', async (req, res) => {
+        if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed.' });
+        try {
+          send(res, 200, await bridge.score(await readInput(req)));
+        } catch (error) {
+          send(res, error?.status ?? 500, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: nodeMode ? [localNodeScorer()] : [],
+  plugins: cppMode ? [localCppScorer()] : nodeMode ? [localNodeScorer()] : [],
 });

@@ -5,6 +5,7 @@ import { NodeScorer } from './node-scorer.js';
 import { PivotGate } from './pivot-gate.js';
 
 const nodeMode = import.meta.env.DEV && import.meta.env.VITE_DRIFTLINE_FAST === '1';
+const cppMode = import.meta.env.DEV && import.meta.env.VITE_DRIFTLINE_CPP === '1';
 
 const $ = (selector) => document.querySelector(selector);
 const els = {
@@ -484,14 +485,14 @@ resetReadings();
 els.goal.value = state.activeScenario.goal;
 els.constraints.value = state.activeScenario.constraints;
 els.history.value = state.activeScenario.history;
-setEngineStatus('loading', nodeMode ? 'Loading local Node model' : 'Loading browser model');
+setEngineStatus('loading', cppMode ? 'Loading native C++ model' : nodeMode ? 'Loading local Node model' : 'Loading browser model');
 
 async function initializeScorer() {
   try {
-    state.scorer = nodeMode ? new NodeScorer() : new DriftScorer();
+    state.scorer = nodeMode || cppMode ? new NodeScorer() : new DriftScorer();
     await state.scorer.ready(handleModelProgress);
     state.ready = true;
-    setEngineStatus('ready', nodeMode ? 'Node scorer ready' : 'Browser scorer ready');
+    setEngineStatus('ready', cppMode ? 'C++ scorer ready' : nodeMode ? 'Node scorer ready' : 'Browser scorer ready');
     if (state.mode === 'replay') void replayScenario();
     else if (els.action.value.trim()) queueScore(els.action.value);
     else els.streamCaption.textContent = 'Start typing to score the next move';

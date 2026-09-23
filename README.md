@@ -2,20 +2,24 @@
 
 ![Driftline cover art](public/og.svg)
 
-Driftline watches an agent's next action while it is still being written. It scores whether that action serves the current user goal, emits a typed decision, and can send a concrete correction before the action is carried out.
+Driftline watches an agent's next action while it is still being written. It scores whether that action serves the current user goal, emits a typed decision, and can send a concrete correction before the action is carried out. The local scorer is written in C++ and runs an int8 ONNX model with SentencePiece tokenization.
 
 The demo runs a real local NLI model. The replays are scripted inputs, but the readings, timings, and decisions come from inference. You can also edit the goal and action live.
 
 ## Try it
 
+On an Apple Silicon Mac, install CMake, SentencePiece, and nlohmann JSON. Setup downloads the pinned ONNX Runtime 1.21.0 C++ package and the pinned model files.
+
 ```sh
+brew install cmake sentencepiece nlohmann-json
 npm ci
-npm run dev:fast
+npm run setup:cpp
+npm run dev:cpp
 ```
 
-Open the local address printed by Vite. This mode runs inference in a local Node process and shows the browser's round-trip latency. The first run downloads an int8 model of about 90 MB to `.cache`. Later runs reuse it. No API key is needed.
+Open the local address printed by Vite. Vite passes scoring requests to one persistent native process over newline delimited JSON. The browser displays the result and measures its round trip time. Setup downloads the pinned int8 model of about 90 MB and its SentencePiece tokenizer into `.cache`. Later runs reuse them. No API key is needed.
 
-Use `npm run dev` for the browser-only version. It runs the same model and decision policy in a Web Worker and needs no local scoring server. The production build uses this browser mode, which is substantially slower on the machine used for this project.
+`npm run dev:fast` keeps the original Node scorer for comparison. `npm run dev` and the static production build use a browser Web Worker so the public GitHub Pages demo runs without a server. The C++ scorer currently runs locally and is not deployed with that static site.
 
 Select one of the three replays to watch an action develop across partial snapshots. Use **Edit live** or **Start from scratch** to score your own text. **Inspect JSON** shows each request, decision, and gate result.
 
@@ -24,7 +28,7 @@ Select one of the three replays to watch an action develop across partial snapsh
 ```text
 current goal + constraints + recent history + partial action
                          ↓
-      local Node process or browser Web Worker
+       native C++ process, Node, or browser worker
                          ↓
         local NLI model and signal assembly
                          ↓
@@ -48,20 +52,22 @@ The output contract includes `kind`, `confidence`, `driftScore`, `adjustment`, `
 ```sh
 npm test
 npm run eval
+npm run eval:cpp
 npm run build
 ```
 
-The unit tests cover typed decisions and stale-result handling. The evaluation runs 16 hand-labeled scenarios with 37 partial-action snapshots against the same local model used by the demo. It prints a confusion matrix, pivot precision and recall, missed pivots, and warm p50, p95, and p99 scorer latency. The evaluation notes are in [evals/README.md](evals/README.md).
+The unit tests cover typed decisions and stale-result handling. The JS evaluation runs 16 hand-labeled scenarios with 37 partial-action snapshots against the same local model used by the demo. The C++ evaluation scores the same corpus, compares decisions with the JS path, and measures warm native process round trips. The evaluation notes are in [evals/README.md](evals/README.md).
 
 This corpus is a regression set, not a representative accuracy study. It includes quoted instructions, negated actions, adjacent subtasks, explicit constraint violations, and incomplete fragments. Do not interpret its precision or recall as production performance.
 
-On September 23, 2026, `npm run eval` on Node 26 and macOS arm64 detected 5 of 10 labeled pivots with no false pivots among 27 other snapshots. Warm local scorer latency over 200 sequential mixed inputs was 35.3 ms at p50, 48.7 ms at p95, and 52.0 ms at p99. Those timings exclude browser rendering and model download. The static browser replay took more than one second per warm reading on this machine. Run the commands above to measure your own hardware.
+On September 23, 2026, both scorers detected 5 of 10 labeled pivots with no false pivots among 27 other snapshots. The C++ and JS decisions matched on all 37 snapshots. One native run measured warm process round trips over 200 sequential mixed inputs at 59.3 ms p50, 95.9 ms p95, and 117.5 ms p99. A separate JS run measured 193.2 ms p50, 350.0 ms p95, and 528.2 ms p99. An earlier JS run measured 35.3 ms p50. The machine had high background load during the newer runs, so these figures do not establish a speed advantage. Timings exclude browser rendering and model download. Run the commands above on your own hardware.
 
 ## Current limits
 
 - The scorer missed half the labeled pivots in this small regression set. It can miss a real pivot when an action contains both relevant and conflicting language. The gate only redirects on a high-confidence pivot.
 - Scores are uncalibrated. Thresholds need a larger, independent dataset before use in an autonomous agent.
-- Browser inference is slower than Node CPU inference on the same machine. The model download dominates first use. The fast mode is a local development server, not a deployed inference service.
+- The C++ process still uses a model whose inference time dominates scoring. C++ alone does not make this a microsecond system. The model download dominates first use. The native mode is a local development server, not a deployed inference service.
+- The native tokenizer and sentence splitting have been compared on the regression corpus, but arbitrary Unicode, abbreviations, and long truncated inputs can differ from the JavaScript path.
 - The demo sink shows the exact correction that would be sent, but it does not interrupt a live model or tool call.
 
 Driftline uses [`Xenova/nli-deberta-v3-xsmall`](https://huggingface.co/Xenova/nli-deberta-v3-xsmall) pinned to a model revision through [Transformers.js](https://huggingface.co/docs/transformers.js/v3.8.1/en/api/pipelines). The underlying model is [`cross-encoder/nli-deberta-v3-xsmall`](https://huggingface.co/cross-encoder/nli-deberta-v3-xsmall). [Agent Trajectory Sentinel](https://arxiv.org/abs/2608.02464) is related work on completed-step telemetry monitoring. Driftline scores the semantics of partial action text and does not reuse that paper's latency or detection claims.
