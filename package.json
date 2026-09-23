@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "dev:fast": "VITE_DRIFTLINE_FAST=1 vite --host 127.0.0.1",
+    "dev:cpp": "VITE_DRIFTLINE_CPP=1 vite --host 127.0.0.1",
+    "setup:cpp": "sh scripts/fetch-native-model.sh && sh scripts/fetch-onnxruntime.sh && cmake -S native -B build/native -DCMAKE_BUILD_TYPE=Release -Donnxruntime_DIR=$PWD/build/deps/onnxruntime-osx-arm64-1.21.0/lib/cmake/onnxruntime && cmake --build build/native -j4",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test",
-    "eval": "node evals/run.mjs"
+    "eval": "node evals/run.mjs",
+    "eval:cpp": "node evals/run-cpp.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "3.8.1"
