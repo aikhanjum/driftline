@@ -3,6 +3,9 @@ import { scenarios } from './scenarios.js';
 import { DriftScorer } from './scorer-client.js';
 import { NodeScorer } from './node-scorer.js';
 import { PivotGate } from './pivot-gate.js';
+import { initLiveLab } from './live-lab.js';
+
+initLiveLab();
 
 const nodeMode = import.meta.env.DEV && import.meta.env.VITE_DRIFTLINE_FAST === '1';
 const cppMode = import.meta.env.DEV && import.meta.env.VITE_DRIFTLINE_CPP === '1';

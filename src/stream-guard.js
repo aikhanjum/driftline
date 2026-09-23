@@ -138,6 +138,7 @@ export async function runGuardedStream({
 
           if (sourceDone && !scoreEvent && !pendingSnapshot) {
             if (lastReading?.revision !== revision || lastReading.stale || (finalScore && !lastReading.final)) {
+              decision = null;
               return finish('blocked', 'stale_decision');
             }
             return decision?.kind === 'continue'
