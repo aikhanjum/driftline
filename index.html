@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f2f0e9" />
+    <meta name="description" content="Driftline catches agent goal drift while the next action is still being written. Try a live, local intent scoring demo." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Driftline. Catch the drift before the detour." />
+    <meta property="og:description" content="A live workbench for agent course correction. Edit a goal, stream a partial action, and watch a real intent signal respond." />
+    <meta property="og:image" content="/og.svg" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23252b27'/%3E%3Cpath d='M14 43h13l11-21h12M38 22l-5-7M38 22l-4 8' fill='none' stroke='%23e86143' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <title>Driftline | Real-time agent course correction</title>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header" aria-label="Site header">
+        <a class="brand" href="#top" aria-label="Driftline home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 44 44" fill="none"><path d="M7 30h10L27 11h10M27 11l-4-5M27 11l-4 7" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="brand-name">driftline<span class="brand-stop">.</span></span>
+        </a>
+        <div class="header-right">
+          <span class="header-edition">AGENT INTENT INSTRUMENT&nbsp; / &nbsp;NO. 01</span>
+          <button class="text-button inspect-trigger" id="inspect-top" type="button" aria-controls="inspector" aria-expanded="false">Inspect JSON <span aria-hidden="true">↗</span></button>
+        </div>
+      </header>
+
+      <main id="top">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> REAL-TIME COURSE CORRECTION</p>
+            <h1 id="hero-title">Catch the drift <span>before the detour.</span></h1>
+            <p class="hero-description">An agent can be wrong before it acts. Driftline reads the next move as it forms, then returns a typed signal and a concrete correction.</p>
+            <a class="hero-link" href="#workbench">Try the live workbench <span aria-hidden="true">↘</span></a>
+          </div>
+          <div class="hero-graphic" aria-hidden="true">
+            <div class="graphic-top"><span>FIG. 01</span><span>INTENT / TRAJECTORY</span></div>
+            <svg class="trajectory" viewBox="0 0 480 304" fill="none" preserveAspectRatio="xMidYMid meet">
+              <path class="trajectory-grid" d="M0 48H480M0 112H480M0 176H480M0 240H480M48 0V304M144 0V304M240 0V304M336 0V304M432 0V304" />
+              <path class="trajectory-guide" d="M44 238C126 207 148 188 216 158C276 131 336 116 444 84" />
+              <path class="trajectory-original" d="M44 238C126 207 148 188 216 158C275 132 319 169 346 215C365 246 399 257 444 274" />
+              <path class="trajectory-correction" d="M216 158C275 132 319 112 346 110C385 107 415 94 444 84" />
+              <circle cx="44" cy="238" r="5" class="trajectory-start" />
+              <circle cx="216" cy="158" r="8" class="trajectory-pivot" />
+              <circle cx="444" cy="84" r="5" class="trajectory-end" />
+              <path class="trajectory-pointer" d="M216 158L244 205H309" />
+              <text x="315" y="209" class="trajectory-label">CORRECTION</text>
+              <text x="18" y="278" class="trajectory-small">GOAL</text>
+              <text x="391" y="294" class="trajectory-small">DRIFT</text>
+            </svg>
+            <div class="graphic-bottom"><span>ONE GOAL</span><span>CONTINUOUS SIGNAL</span><span>NO WAITING</span></div>
+          </div>
+        </section>
+
+        <section class="workbench" id="workbench" aria-labelledby="workbench-heading">
+          <div class="workbench-heading-row">
+            <div class="workbench-heading-group">
+              <span class="section-index">01 / THE WORKBENCH</span>
+              <h2 id="workbench-heading">Watch intent change in flight.</h2>
+            </div>
+            <div class="engine-status" id="engine-status" role="status" aria-live="polite">
+              <span class="status-led" aria-hidden="true"></span>
+              <span id="engine-status-text">Starting signal engine</span>
+              <span class="status-percentage" id="engine-percent"></span>
+            </div>
+          </div>
+          <progress id="model-progress" class="model-progress" max="100" value="0" hidden aria-label="Signal engine loading progress"></progress>
+
+          <div class="mode-row" aria-label="Choose an input mode">
+            <span class="mode-label">CHOOSE A BRIEF</span>
+            <div class="scenario-list" id="scenario-list"></div>
+            <button class="custom-scenario" id="custom-scenario" type="button">Start from scratch <span aria-hidden="true">↗</span></button>
+          </div>
+
+          <div class="instrument-grid">
+            <div class="composer-panel">
+              <div class="panel-heading">
+                <div><span class="panel-index">A / INPUT</span><h3>The agent's brief</h3></div>
+                <span class="mode-pill" id="input-mode">SCRIPTED REPLAY</span>
+              </div>
+
+              <label class="field-label" for="goal-input"><span>01</span> Goal</label>
+              <textarea id="goal-input" class="goal-input" rows="3" spellcheck="false" aria-describedby="goal-help"></textarea>
+              <p class="field-help" id="goal-help">The instruction the agent is meant to preserve.</p>
+
+              <details class="context-details" id="context-details">
+                <summary><span>Context and constraints</span><span class="details-hint">EDITABLE</span></summary>
+                <div class="context-fields">
+                  <label for="constraints-input">Constraints</label>
+                  <textarea id="constraints-input" rows="2" spellcheck="false"></textarea>
+                  <label for="history-input">Recent history</label>
+                  <textarea id="history-input" rows="2" spellcheck="false"></textarea>
+                </div>
+              </details>
+
+              <div class="action-heading">
+                <label class="field-label" for="action-input"><span>02</span> Next action, still forming</label>
+                <span class="typing-cursor" id="typing-cursor" aria-hidden="true"></span>
+              </div>
+              <textarea id="action-input" class="action-input" rows="5" spellcheck="false" placeholder="Start typing what the agent plans to do..."></textarea>
+              <div class="composer-bottom">
+                <div class="stream-caption"><span class="stream-led" aria-hidden="true"></span><span id="stream-caption">Waiting for the engine</span></div>
+                <div class="composer-actions">
+                  <button class="subtle-button" id="edit-live" type="button">Edit live</button>
+                  <button class="primary-button" id="replay-button" type="button"><span id="replay-button-icon" aria-hidden="true">↻</span><span id="replay-button-text">Replay sequence</span></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="signal-panel" aria-labelledby="signal-heading">
+              <div class="signal-top"><span class="panel-index">B / LIVE SIGNAL</span><span class="signal-seq" id="signal-seq">READING 000</span></div>
+              <div class="signal-main">
+                <div class="signal-label-row"><h3 id="signal-heading">Drift probability</h3><span class="signal-icon" aria-hidden="true">↗</span></div>
+                <div class="reading-line"><span class="signal-value" id="signal-value">—</span><span class="signal-unit" id="signal-unit">%</span></div>
+                <div class="signal-scale" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+                <div class="signal-track" role="img" id="signal-track" aria-label="No drift probability reading yet"><span id="signal-fill"></span><i id="signal-marker"></i></div>
+                <div class="classification"><span class="classification-key">DECISION</span><span class="classification-value" id="decision-value">Awaiting first reading</span></div>
+              </div>
+              <div class="metric-grid">
+                <div class="metric"><span>MODEL CONFIDENCE <button class="info-dot" type="button" aria-label="Confidence is a raw model score, not a calibrated probability" title="Raw model score, not a calibrated probability">i</button></span><strong id="confidence-value">—</strong></div>
+                <div class="metric"><span>SCORING LATENCY</span><strong id="latency-value">—</strong></div>
+              </div>
+              <p class="confidence-note">Confidence is a raw model score, not a calibrated probability.</p>
+              <div class="signal-footer"><span class="pulse-mark" aria-hidden="true"></span><span id="signal-footer-text">Every number comes from the scorer.</span></div>
+            </div>
+          </div>
+
+          <div class="readout-grid">
+            <section class="trace-panel" aria-labelledby="trace-heading">
+              <div class="readout-heading"><div><span class="panel-index">C / TELEMETRY</span><h3 id="trace-heading">The intent trace</h3></div><span class="readout-note">LATEST SIX READINGS</span></div>
+              <div class="trace-plot" id="trace-plot" role="img" aria-label="No scored readings yet">
+                <div class="trace-empty" id="trace-empty">The trace starts when the scorer responds.</div>
+                <svg id="trace-svg" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+              </div>
+              <ol class="trace-list" id="trace-list" aria-label="Recent scorer readings"></ol>
+            </section>
+            <section class="dispatch-panel" aria-labelledby="dispatch-heading">
+              <div class="readout-heading"><div><span class="panel-index">D / COURSE CORRECTION</span><h3 id="dispatch-heading">Agent handoff</h3></div><span class="demo-sink-badge">DEMO SINK</span></div>
+              <div class="handoff-state" id="handoff-state"><span class="handoff-symbol">↳</span><span>Waiting for a pivot to dispatch.</span></div>
+              <p class="dispatch-copy" id="dispatch-copy">When the scorer returns a pivot, its exact adjustment appears here as the instruction sent to a simulated agent.</p>
+              <div class="gate-status" id="gate-status">GATE / NO READING</div>
+              <div class="dispatch-meta" id="dispatch-meta">NO ADJUSTMENT DISPATCHED</div>
+            </section>
+          </div>
+
+          <div class="proof-row"><span>LOCAL MODEL</span><span>REAL MEASURED READINGS</span><span>SCRIPTED INPUTS LABELED</span><span>NO EXTERNAL ACTIONS</span></div>
+        </section>
+      </main>
+
+      <footer class="site-footer"><div><span class="footer-mark" aria-hidden="true">↗</span><span>driftline.</span></div><p>A small instrument for the moment before an agent commits.</p><span class="footer-index">© 2026 / BUILT FOR THE OPEN WEB</span></footer>
+    </div>
+
+    <aside class="inspector" id="inspector" aria-labelledby="inspector-heading" hidden>
+      <div class="inspector-backdrop" id="inspector-backdrop"></div>
+      <div class="inspector-drawer" role="dialog" aria-modal="true" aria-labelledby="inspector-heading">
+        <div class="inspector-head"><div><span class="panel-index">RAW OUTPUT</span><h2 id="inspector-heading">Inspect the reading</h2></div><button type="button" class="inspector-close" id="inspector-close" aria-label="Close JSON inspector">×</button></div>
+        <p>This is the latest request and response from the local scorer. It updates as the action changes.</p>
+        <pre id="inspector-json" tabindex="0">No reading yet.</pre>
+        <div class="inspector-actions"><button class="primary-button" id="copy-json" type="button">Copy JSON</button><span id="copy-feedback" role="status"></span></div>
+      </div>
+    </aside>
+    <span class="sr-only" id="screenreader-status" role="status" aria-live="polite"></span>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
