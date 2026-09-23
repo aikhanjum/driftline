@@ -50,7 +50,7 @@ function validateDecision(decision, input) {
   if (!decision || !LABELS.includes(decision.kind)) throw new Error('Invalid decision kind.');
   for (const [name, value] of Object.entries({
     confidence: decision.confidence,
-    driftProbability: decision.driftProbability,
+    driftScore: decision.driftScore,
     aligned: decision.signals?.aligned,
     drift: decision.signals?.drift,
     contradiction: decision.signals?.contradiction,

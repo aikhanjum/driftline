@@ -39,6 +39,21 @@ test('a current high-confidence pivot steers during a tool action', () => {
   assert.deepEqual(calls, [{ adjustment: decision.adjustment, decision }]);
 });
 
+test('later partials cannot dispatch a second redirect for the same goal phase', () => {
+  const calls = [];
+  const gate = new PivotGate({ onRedirect: () => calls.push('redirect') });
+  gate.setContext({ goalVersion: 7, requestId: 'score-1', phase: 'model' });
+  assert.deepEqual(gate.apply(pivot()), { applied: true, reason: 'redirected' });
+
+  gate.setContext({ goalVersion: 7, requestId: 'score-2', phase: 'model' });
+  assert.deepEqual(gate.apply(pivot({ requestId: 'score-2' })), { applied: false, reason: 'already_applied' });
+  assert.deepEqual(calls, ['redirect']);
+
+  gate.setContext({ goalVersion: 8, requestId: 'score-3', phase: 'model' });
+  assert.deepEqual(gate.apply(pivot({ goalVersion: 8, requestId: 'score-3' })), { applied: true, reason: 'redirected' });
+  assert.deepEqual(calls, ['redirect', 'redirect']);
+});
+
 test('a result for an old goal revision cannot apply', async () => {
   const calls = [];
   const gate = new PivotGate({ onRedirect: () => calls.push('redirect') });

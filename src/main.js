@@ -270,14 +270,14 @@ async function drainQueue() {
       if (payload.goalVersion !== state.goalVersion) continue;
       if (result?.goalVersion !== payload.goalVersion || result?.requestId !== payload.requestId) continue;
       if (!['continue', 'pivot', 'uncertain'].includes(result.kind)) throw new Error('The scorer returned an unknown decision.');
-      if (!Number.isFinite(result.driftProbability) || !Number.isFinite(result.confidence)) throw new Error('The scorer returned an incomplete reading.');
+      if (!Number.isFinite(result.driftScore) || !Number.isFinite(result.confidence)) throw new Error('The scorer returned an incomplete reading.');
       const gateResult = mode === 'replay' ? gate.apply(result) : null;
       const current = payload.requestId === state.requestId;
       state.trace.push({
         requestId: payload.requestId,
         text: payload.partialAction,
         kind: result.kind,
-        probability: Math.max(0, Math.min(1, result.driftProbability)),
+        driftScore: Math.max(0, Math.min(1, result.driftScore)),
         alignment: Number.isFinite(result.signals?.aligned) ? Math.max(0, Math.min(1, result.signals.aligned)) : null,
         latencyMs: result.latencyMs,
       });
@@ -288,7 +288,7 @@ async function drainQueue() {
       renderGateResult(gateResult, result, mode);
       renderInspector();
       if (result.kind !== state.lastDecision) {
-        els.srStatus.textContent = `Signal changed to ${result.kind}. Drift score ${Math.round(result.driftProbability * 100)} out of 100.`;
+        els.srStatus.textContent = `Signal changed to ${result.kind}. Drift score ${Math.round(result.driftScore * 100)} out of 100.`;
         state.lastDecision = result.kind;
       }
       if (state.mode === 'live') els.streamCaption.textContent = 'Live action scored';
@@ -305,25 +305,27 @@ async function drainQueue() {
 }
 
 function renderReading(result) {
-  const probability = Math.max(0, Math.min(1, result.driftProbability));
+  const driftScore = Math.max(0, Math.min(1, result.driftScore));
   const confidence = Math.max(0, Math.min(1, result.confidence));
-  const percentage = Math.round(probability * 100);
+  const percentage = Math.round(driftScore * 100);
   els.signalPanel.dataset.kind = result.kind;
   els.signalValue.textContent = String(percentage);
   els.signalFill.style.width = `${percentage}%`;
   els.signalMarker.style.left = `${percentage}%`;
   els.signalTrack.setAttribute('aria-label', `Uncalibrated model drift score ${percentage} out of 100`);
-  els.decision.textContent = ({ continue: 'ON COURSE', pivot: 'PIVOT ADVISED', uncertain: 'UNCERTAIN · HOLD' })[result.kind];
+  els.decision.textContent = ({ continue: 'ON COURSE', pivot: 'PIVOT ADVISED', uncertain: 'UNCERTAIN · MONITOR' })[result.kind];
   els.confidence.textContent = confidence.toFixed(2);
   const roundTripMs = Number.isFinite(result.roundTripMs) ? result.roundTripMs : result.latencyMs;
   els.latency.textContent = Number.isFinite(roundTripMs)
     ? `${roundTripMs < 10 ? roundTripMs.toFixed(1) : Math.round(roundTripMs)} ms`
     : '—';
   els.sequence.textContent = `READING ${String(state.trace.length).padStart(3, '0')}`;
-  els.signalFooter.textContent = result.kind === 'pivot'
+  els.signalFooter.textContent = state.dispatchCount > 0
+    ? 'Pivot gate redirected the simulated agent.'
+    : result.kind === 'pivot'
     ? 'A typed correction is ready for the agent.'
     : result.kind === 'uncertain'
-      ? 'The model held the action for review.'
+      ? 'The scorer abstained on this fragment.'
       : 'The next action still matches the goal.';
 }
 
@@ -332,7 +334,7 @@ function renderTrace() {
   els.traceEmpty.hidden = points.length > 0;
   const coordinates = points.map((point, index) => ({
     x: points.length === 1 ? 300 : 24 + (index / (points.length - 1)) * 552,
-    driftY: 86 - point.probability * 72,
+    driftY: 86 - point.driftScore * 72,
     alignmentY: Number.isFinite(point.alignment) ? 86 - point.alignment * 72 : null,
     kind: point.kind,
   }));
@@ -346,10 +348,10 @@ function renderTrace() {
     ${coordinates.map((point) => `<circle cx="${point.x}" cy="${point.driftY}" r="4.5" class="plot-dot plot-dot-drift" />`).join('')}
     ${alignmentCoordinates.map((point) => `<circle cx="${point.x}" cy="${point.alignmentY}" r="3.5" class="plot-dot plot-dot-alignment" />`).join('')}
   `;
-  els.tracePlot.setAttribute('aria-label', `Last ${points.length} uncalibrated model drift scores, from ${Math.round(points[0].probability * 100)} to ${Math.round(points[points.length - 1].probability * 100)} out of 100`);
+  els.tracePlot.setAttribute('aria-label', `Last ${points.length} uncalibrated model drift scores, from ${Math.round(points[0].driftScore * 100)} to ${Math.round(points[points.length - 1].driftScore * 100)} out of 100`);
   els.traceList.innerHTML = points.slice().reverse().map((point) => {
     const clipped = point.text.length > 67 ? `…${point.text.slice(-67)}` : point.text;
-    return `<li><span class="trace-index">#${String(point.requestId).padStart(3, '0')}</span><span class="trace-text">${escapeHtml(clipped)}</span><span class="trace-outcome trace-${point.kind}">${Math.round(point.probability * 100)} · ${point.kind.toUpperCase()}</span></li>`;
+    return `<li><span class="trace-index">#${String(point.requestId).padStart(3, '0')}</span><span class="trace-text">${escapeHtml(clipped)}</span><span class="trace-outcome trace-${point.kind}">${Math.round(point.driftScore * 100)} · ${point.kind.toUpperCase()}</span></li>`;
   }).join('');
 }
 
@@ -366,6 +368,7 @@ function renderGateResult(gateResult, result, mode) {
     els.gateStatus.textContent = 'LIVE INPUT / SCORING ONLY';
     return;
   }
+  if (state.dispatchCount > 0 && !gateResult.applied) return;
   els.gateStatus.textContent = `GATE / ${gateResult.reason.toUpperCase().replaceAll('_', ' ')}`;
   if (gateResult.applied) {
     els.signalFooter.textContent = 'Pivot gate redirected the simulated agent.';
