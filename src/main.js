@@ -1,7 +1,10 @@
 import './styles.css';
 import { scenarios } from './scenarios.js';
 import { DriftScorer } from './scorer-client.js';
+import { NodeScorer } from './node-scorer.js';
 import { PivotGate } from './pivot-gate.js';
+
+const nodeMode = import.meta.env.DEV && import.meta.env.VITE_DRIFTLINE_FAST === '1';
 
 const $ = (selector) => document.querySelector(selector);
 const els = {
@@ -312,8 +315,9 @@ function renderReading(result) {
   els.signalTrack.setAttribute('aria-label', `Uncalibrated model drift score ${percentage} out of 100`);
   els.decision.textContent = ({ continue: 'ON COURSE', pivot: 'PIVOT ADVISED', uncertain: 'UNCERTAIN · HOLD' })[result.kind];
   els.confidence.textContent = confidence.toFixed(2);
-  els.latency.textContent = Number.isFinite(result.latencyMs)
-    ? `${result.latencyMs < 10 ? result.latencyMs.toFixed(1) : Math.round(result.latencyMs)} ms`
+  const roundTripMs = Number.isFinite(result.roundTripMs) ? result.roundTripMs : result.latencyMs;
+  els.latency.textContent = Number.isFinite(roundTripMs)
+    ? `${roundTripMs < 10 ? roundTripMs.toFixed(1) : Math.round(roundTripMs)} ms`
     : '—';
   els.sequence.textContent = `READING ${String(state.trace.length).padStart(3, '0')}`;
   els.signalFooter.textContent = result.kind === 'pivot'
@@ -477,14 +481,14 @@ resetReadings();
 els.goal.value = state.activeScenario.goal;
 els.constraints.value = state.activeScenario.constraints;
 els.history.value = state.activeScenario.history;
-setEngineStatus('loading', 'Loading local model');
+setEngineStatus('loading', nodeMode ? 'Loading local Node model' : 'Loading browser model');
 
 async function initializeScorer() {
   try {
-    state.scorer = new DriftScorer();
+    state.scorer = nodeMode ? new NodeScorer() : new DriftScorer();
     await state.scorer.ready(handleModelProgress);
     state.ready = true;
-    setEngineStatus('ready', 'Signal engine ready');
+    setEngineStatus('ready', nodeMode ? 'Node scorer ready' : 'Browser scorer ready');
     if (state.mode === 'replay') void replayScenario();
     else if (els.action.value.trim()) queueScore(els.action.value);
     else els.streamCaption.textContent = 'Start typing to score the next move';
