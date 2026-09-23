@@ -112,17 +112,17 @@
             <div class="signal-panel" aria-labelledby="signal-heading">
               <div class="signal-top"><span class="panel-index">B / LIVE SIGNAL</span><span class="signal-seq" id="signal-seq">READING 000</span></div>
               <div class="signal-main">
-                <div class="signal-label-row"><h3 id="signal-heading">Drift probability</h3><span class="signal-icon" aria-hidden="true">↗</span></div>
-                <div class="reading-line"><span class="signal-value" id="signal-value">—</span><span class="signal-unit" id="signal-unit">%</span></div>
+                <div class="signal-label-row"><h3 id="signal-heading">Model drift score</h3><span class="signal-icon" aria-hidden="true">↗</span></div>
+                <div class="reading-line"><span class="signal-value" id="signal-value">—</span><span class="signal-unit" id="signal-unit">/100</span></div>
                 <div class="signal-scale" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
-                <div class="signal-track" role="img" id="signal-track" aria-label="No drift probability reading yet"><span id="signal-fill"></span><i id="signal-marker"></i></div>
+                <div class="signal-track" role="img" id="signal-track" aria-label="No drift score reading yet"><span id="signal-fill"></span><i id="signal-marker"></i></div>
                 <div class="classification"><span class="classification-key">DECISION</span><span class="classification-value" id="decision-value">Awaiting first reading</span></div>
               </div>
               <div class="metric-grid">
-                <div class="metric"><span>MODEL CONFIDENCE <button class="info-dot" type="button" aria-label="Confidence is a raw model score, not a calibrated probability" title="Raw model score, not a calibrated probability">i</button></span><strong id="confidence-value">—</strong></div>
+                <div class="metric"><span>MODEL CONFIDENCE <button class="info-dot" type="button" aria-label="Confidence is a raw model score between zero and one" title="Raw model score, not a calibrated probability">i</button></span><strong id="confidence-value">—</strong></div>
                 <div class="metric"><span>SCORING LATENCY</span><strong id="latency-value">—</strong></div>
               </div>
-              <p class="confidence-note">Confidence is a raw model score, not a calibrated probability.</p>
+              <p class="confidence-note">Scores are raw model outputs, not calibrated probabilities.</p>
               <div class="signal-footer"><span class="pulse-mark" aria-hidden="true"></span><span id="signal-footer-text">Every number comes from the scorer.</span></div>
             </div>
           </div>
@@ -134,6 +134,7 @@
                 <div class="trace-empty" id="trace-empty">The trace starts when the scorer responds.</div>
                 <svg id="trace-svg" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true"></svg>
               </div>
+              <div class="trace-legend"><span><i class="legend-alignment" aria-hidden="true"></i> GOAL MATCH</span><span><i class="legend-drift" aria-hidden="true"></i> DRIFT</span></div>
               <ol class="trace-list" id="trace-list" aria-label="Recent scorer readings"></ol>
             </section>
             <section class="dispatch-panel" aria-labelledby="dispatch-heading">

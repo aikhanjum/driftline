@@ -136,10 +136,10 @@ function resetReadings() {
   state.dispatchCount = 0;
   els.signalPanel.dataset.kind = 'idle';
   els.signalValue.textContent = '—';
-  els.signalUnit.textContent = '%';
+  els.signalUnit.textContent = '/100';
   els.signalFill.style.width = '0%';
   els.signalMarker.style.left = '0%';
-  els.signalTrack.setAttribute('aria-label', 'No drift probability reading yet');
+  els.signalTrack.setAttribute('aria-label', 'No drift score reading yet');
   els.decision.textContent = 'Awaiting first reading';
   els.confidence.textContent = '—';
   els.latency.textContent = '—';
@@ -275,6 +275,7 @@ async function drainQueue() {
         text: payload.partialAction,
         kind: result.kind,
         probability: Math.max(0, Math.min(1, result.driftProbability)),
+        alignment: Number.isFinite(result.signals?.aligned) ? Math.max(0, Math.min(1, result.signals.aligned)) : null,
         latencyMs: result.latencyMs,
       });
       renderTrace();
@@ -284,7 +285,7 @@ async function drainQueue() {
       renderGateResult(gateResult, result, mode);
       renderInspector();
       if (result.kind !== state.lastDecision) {
-        els.srStatus.textContent = `Signal changed to ${result.kind}. Drift probability ${Math.round(result.driftProbability * 100)} percent.`;
+        els.srStatus.textContent = `Signal changed to ${result.kind}. Drift score ${Math.round(result.driftProbability * 100)} out of 100.`;
         state.lastDecision = result.kind;
       }
       if (state.mode === 'live') els.streamCaption.textContent = 'Live action scored';
@@ -308,9 +309,9 @@ function renderReading(result) {
   els.signalValue.textContent = String(percentage);
   els.signalFill.style.width = `${percentage}%`;
   els.signalMarker.style.left = `${percentage}%`;
-  els.signalTrack.setAttribute('aria-label', `Drift probability ${percentage} percent`);
+  els.signalTrack.setAttribute('aria-label', `Uncalibrated model drift score ${percentage} out of 100`);
   els.decision.textContent = ({ continue: 'ON COURSE', pivot: 'PIVOT ADVISED', uncertain: 'UNCERTAIN · HOLD' })[result.kind];
-  els.confidence.textContent = `${Math.round(confidence * 100)}%`;
+  els.confidence.textContent = confidence.toFixed(2);
   els.latency.textContent = Number.isFinite(result.latencyMs)
     ? `${result.latencyMs < 10 ? result.latencyMs.toFixed(1) : Math.round(result.latencyMs)} ms`
     : '—';
@@ -327,19 +328,24 @@ function renderTrace() {
   els.traceEmpty.hidden = points.length > 0;
   const coordinates = points.map((point, index) => ({
     x: points.length === 1 ? 300 : 24 + (index / (points.length - 1)) * 552,
-    y: 86 - point.probability * 72,
+    driftY: 86 - point.probability * 72,
+    alignmentY: Number.isFinite(point.alignment) ? 86 - point.alignment * 72 : null,
     kind: point.kind,
   }));
-  const path = coordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+  const driftPath = coordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.driftY.toFixed(1)}`).join(' ');
+  const alignmentCoordinates = coordinates.filter((point) => Number.isFinite(point.alignmentY));
+  const alignmentPath = alignmentCoordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.alignmentY.toFixed(1)}`).join(' ');
   els.traceSvg.innerHTML = `
     <path d="M0 14H600M0 50H600M0 86H600" class="plot-grid" />
-    ${coordinates.length > 1 ? `<path d="${path}" class="plot-path" />` : ''}
-    ${coordinates.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4.5" class="plot-dot plot-dot-${point.kind}" />`).join('')}
+    ${coordinates.length > 1 ? `<path d="${driftPath}" class="plot-path plot-path-drift" />` : ''}
+    ${alignmentCoordinates.length > 1 ? `<path d="${alignmentPath}" class="plot-path plot-path-alignment" />` : ''}
+    ${coordinates.map((point) => `<circle cx="${point.x}" cy="${point.driftY}" r="4.5" class="plot-dot plot-dot-drift" />`).join('')}
+    ${alignmentCoordinates.map((point) => `<circle cx="${point.x}" cy="${point.alignmentY}" r="3.5" class="plot-dot plot-dot-alignment" />`).join('')}
   `;
-  els.tracePlot.setAttribute('aria-label', `Last ${points.length} drift readings, from ${Math.round(points[0].probability * 100)} to ${Math.round(points[points.length - 1].probability * 100)} percent`);
+  els.tracePlot.setAttribute('aria-label', `Last ${points.length} uncalibrated model drift scores, from ${Math.round(points[0].probability * 100)} to ${Math.round(points[points.length - 1].probability * 100)} out of 100`);
   els.traceList.innerHTML = points.slice().reverse().map((point) => {
     const clipped = point.text.length > 67 ? `…${point.text.slice(-67)}` : point.text;
-    return `<li><span class="trace-index">#${String(point.requestId).padStart(3, '0')}</span><span class="trace-text">${escapeHtml(clipped)}</span><span class="trace-outcome trace-${point.kind}">${Math.round(point.probability * 100)}% · ${point.kind.toUpperCase()}</span></li>`;
+    return `<li><span class="trace-index">#${String(point.requestId).padStart(3, '0')}</span><span class="trace-text">${escapeHtml(clipped)}</span><span class="trace-outcome trace-${point.kind}">${Math.round(point.probability * 100)} · ${point.kind.toUpperCase()}</span></li>`;
   }).join('');
 }
 
