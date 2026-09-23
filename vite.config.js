@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import { inferSignals, loadClassifier } from './src/semantic-model.js';
 import { makeDecision } from './src/scorer-core.js';
 import { NativeBridge } from './native/bridge.js';
+import { attachLiveAgent } from './server/live-agent.js';
 
 const nodeMode = process.env.VITE_DRIFTLINE_FAST === '1';
 const cppMode = process.env.VITE_DRIFTLINE_CPP === '1';
@@ -72,6 +73,7 @@ function localCppScorer() {
     name: 'driftline-local-cpp-scorer',
     configureServer(server) {
       server.httpServer?.on('close', () => bridge.dispose());
+      attachLiveAgent(server, bridge, readInput, send);
       server.middlewares.use('/api/ready', async (req, res) => {
         if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed.' });
         try {

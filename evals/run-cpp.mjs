@@ -5,10 +5,14 @@ import { inferSignals, loadClassifier } from '../src/semantic-model.js';
 import { makeDecision } from '../src/scorer-core.js';
 
 const corpus = JSON.parse(await readFile(new URL('./scenarios.json', import.meta.url), 'utf8'));
+const profileIndex = process.argv.indexOf('--profile');
+const profile = profileIndex < 0 ? 'conservative' : process.argv[profileIndex + 1];
+if (!['conservative', 'early'].includes(profile)) throw new Error('Unknown scoring profile.');
 const inputs = corpus.cases.flatMap((scenario) => scenario.snapshots.map((snapshot, index) => ({
   id: `${scenario.id}:${index}`,
   gold: snapshot.gold,
   input: {
+    profile,
     goal: scenario.goal,
     constraints: (scenario.constraints ?? []).join(' '),
     history: scenario.history ?? [],
@@ -58,6 +62,7 @@ try {
   }
   const counts = matrix(rows);
   console.log(`Corpus ${corpus.cases.length} scenarios, ${rows.length} snapshots`);
+  console.log(`Profile ${profile}`);
   console.log('Gold rows, predicted columns   continue  pivot  uncertain');
   for (const [gold, values] of Object.entries(counts)) {
     console.log(`${gold.padEnd(30)} ${String(values.continue).padStart(8)} ${String(values.pivot).padStart(6)} ${String(values.uncertain).padStart(10)}`);
