@@ -102,14 +102,18 @@ double twoWayEntailment(const std::array<float, 3>& logits) {
   return entailment / (contradiction + entailment);
 }
 
-double threeWayContradiction(const std::array<float, 3>& logits) {
+std::array<double, 3> threeWayProbabilities(const std::array<float, 3>& logits) {
   const double max = std::max({static_cast<double>(logits[0]),
                                static_cast<double>(logits[1]),
                                static_cast<double>(logits[2])});
   const double a = std::exp(logits[0] - max);
   const double b = std::exp(logits[1] - max);
   const double c = std::exp(logits[2] - max);
-  return a / (a + b + c);
+  return {a / (a + b + c), b / (a + b + c), c / (a + b + c)};
+}
+
+double threeWayContradiction(const std::array<float, 3>& logits) {
+  return threeWayProbabilities(logits)[0];
 }
 
 std::string sentenceEnding(const std::string& value) {
@@ -130,6 +134,17 @@ class NativeScorer {
   }
 
   json score(const json& input) {
+    for (const auto& [key, limit] : std::vector<std::pair<const char*, std::size_t>>{
+             {"goal", 500}, {"constraints", 350}, {"partialAction", 500}}) {
+      if (trim(field(input, key)).size() > limit)
+        throw std::runtime_error(std::string(key) + " exceeds the " +
+            std::to_string(limit) + " byte scoring window. Split the action into smaller steps.");
+    }
+    const auto profile = field(input, "profile");
+    if (!profile.empty() && profile != "conservative" && profile != "early")
+      throw std::runtime_error("Unknown scoring profile.");
+    if (input.contains("verifyRequirements") && !input["verifyRequirements"].is_boolean())
+      throw std::runtime_error("verifyRequirements must be a boolean.");
     const auto goal = trim(field(input, "goal"));
     const auto partialAction = trim(field(input, "partialAction"));
     if (goal.empty()) throw std::runtime_error("A current user goal is required.");
@@ -150,6 +165,7 @@ class NativeScorer {
     double commitment;
     double quotation;
     std::string evidence;
+    json requirements = json::array();
   };
 
   static Ort::SessionOptions sessionOptions() {
@@ -159,13 +175,16 @@ class NativeScorer {
   }
 
   std::vector<std::int64_t> encodePair(const std::string& premise,
-                                        const std::string& hypothesis) const {
+                                        const std::string& hypothesis,
+                                        bool truncate = true) const {
     std::vector<int> first;
     std::vector<int> second;
     if (!sentencepiece_.Encode(trim(premise), &first).ok() ||
         !sentencepiece_.Encode(trim(hypothesis), &second).ok()) {
       throw std::runtime_error("SentencePiece tokenization failed.");
     }
+    if (!truncate && first.size() + second.size() + 3 > kMaxTokens)
+      throw std::runtime_error("Requirement verification exceeds the complete 512 token window.");
     while (first.size() + second.size() + 3 > kMaxTokens) {
       if (first.size() >= second.size()) first.pop_back();
       else second.pop_back();
@@ -181,13 +200,13 @@ class NativeScorer {
   }
 
   std::vector<std::array<float, 3>> runPairs(
-      const std::vector<std::pair<std::string, std::string>>& pairs) {
+      const std::vector<std::pair<std::string, std::string>>& pairs, bool truncate = true) {
     if (pairs.empty()) return {};
     std::vector<std::vector<std::int64_t>> encoded;
     encoded.reserve(pairs.size());
     std::size_t width = 0;
     for (const auto& [premise, hypothesis] : pairs) {
-      encoded.push_back(encodePair(premise, hypothesis));
+      encoded.push_back(encodePair(premise, hypothesis, truncate));
       width = std::max(width, encoded.back().size());
     }
     std::vector<std::int64_t> inputIds(pairs.size() * width, 0);
@@ -246,8 +265,11 @@ class NativeScorer {
       throw std::runtime_error("A goal and agent action are required for scoring.");
 
     std::vector<std::pair<std::string, std::string>> pairs;
+    const bool early = field(input, "profile") == "early";
     for (const auto& action : actions) {
-      for (const auto& source : sources) pairs.emplace_back(source, "The agent will " + action);
+      for (const auto& source : sources)
+        pairs.emplace_back(early ? "The agent is following this instruction: " + source : source,
+                           early ? "The agent plans: " + action : "The agent will " + action);
     }
     const auto logits = runPairs(pairs);
     double contradiction = 0;
@@ -263,7 +285,26 @@ class NativeScorer {
         evidence,
         "The agent statement will commit to doing the described action.",
         "The agent statement will quote or discuss an action without doing it.");
-    return {aligned, drift, contradiction, commitment, quotation, evidence};
+    Signals signals{aligned, drift, contradiction, commitment, quotation, evidence};
+    if (input.value("verifyRequirements", false)) {
+      // Retain neutral probability and verify every requirement independently.
+      // Unlike partial-action scoring, final validation never drops requirements.
+      auto requirements = sentences(trim(field(input, "goal")));
+      const auto constraints = sentences(trim(field(input, "constraints")));
+      requirements.insert(requirements.end(), constraints.begin(), constraints.end());
+      for (const auto& requirement : requirements) {
+        const auto logits = runPairs({{trim(field(input, "partialAction")), requirement}}, false);
+        const auto probabilities = threeWayProbabilities(logits[0]);
+        for (const auto probability : probabilities) {
+          if (!std::isfinite(probability) || probability < 0 || probability > 1)
+            throw std::runtime_error("Invalid requirement inference probabilities.");
+        }
+        signals.requirements.push_back({{"requirement", requirement},
+            {"contradiction", probabilities[0]}, {"entailment", probabilities[1]},
+            {"neutral", probabilities[2]}});
+      }
+    }
+    return signals;
   }
 
   static json makeDecision(const json& input, const Signals& signals) {
@@ -284,8 +325,37 @@ class NativeScorer {
         kind = "continue";
       }
     }
+    json requirementVerification = nullptr;
+    double verifiedConfidence = -1;
+    if (input.value("verifyRequirements", false)) {
+      bool supported = !s.requirements.empty();
+      double minimumEntailment = 1;
+      for (const auto& row : s.requirements) {
+        const double entailment = row["entailment"];
+        supported = supported && entailment >= kContinueThreshold;
+        minimumEntailment = std::min(minimumEntailment, entailment);
+      }
+      const auto baseKind = kind;
+      const bool applied = kind == "uncertain" && action.size() >= 18 &&
+          s.commitment >= kCommitmentFloor && s.quotation < kQuotationCeiling &&
+          s.contradiction <= kCounterSignalCeiling && supported;
+      if (applied) {
+        kind = "continue";
+        verifiedConfidence = minimumEntailment;
+      }
+      requirementVerification = {{"baseKind", baseKind}, {"applied", applied},
+          {"supported", supported}, {"threshold", kContinueThreshold},
+          {"minimumEntailment", s.requirements.empty() ? json(nullptr) : json(minimumEntailment)},
+          {"requirements", s.requirements},
+          {"reason", applied
+            ? "Every explicit requirement is entailed by the full proposed action."
+            : !supported
+              ? "The full proposed action does not entail every explicit requirement."
+              : "The existing decision or intervention safeguards prevent a validation override."}};
+    }
     const double driftScore = std::max(s.drift, s.contradiction);
-    const double confidence = kind == "uncertain" ? 1 - std::abs(s.aligned - driftScore)
+    const double confidence = verifiedConfidence >= 0 ? verifiedConfidence
+        : kind == "uncertain" ? 1 - std::abs(s.aligned - driftScore)
         : kind == "pivot" ? driftScore : s.aligned;
     json adjustment = nullptr;
     if (kind == "pivot") {
@@ -293,10 +363,9 @@ class NativeScorer {
       std::string text = "Pause the proposed action. Resume the current user objective. " +
                          sentenceEnding(goal);
       if (!constraints.empty()) text += " Respect this constraint. " + sentenceEnding(constraints);
-      text += " Ask the user before changing the objective.";
       adjustment = std::move(text);
     }
-    return {{"kind", kind},
+    json result = {{"kind", kind},
             {"confidence", confidence},
             {"driftScore", driftScore},
             {"adjustment", adjustment},
@@ -308,6 +377,8 @@ class NativeScorer {
                          {"contradiction", s.contradiction},
                          {"commitment", s.commitment},
                          {"quotation", s.quotation}}}};
+    if (!requirementVerification.is_null()) result["requirementVerification"] = requirementVerification;
+    return result;
   }
 
   Ort::Env environment_;

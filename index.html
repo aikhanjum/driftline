@@ -33,7 +33,7 @@
             <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> REAL-TIME COURSE CORRECTION</p>
             <h1 id="hero-title">Catch the drift <span>before the detour.</span></h1>
             <p class="hero-description">An agent can be wrong before it acts. Driftline reads the next move as it forms, then returns a typed signal and a concrete correction.</p>
-            <a class="hero-link" href="#workbench">Try the live workbench <span aria-hidden="true">↘</span></a>
+            <a class="hero-link" href="#live-lab">Run the intervention lab <span aria-hidden="true">↘</span></a>
           </div>
           <div class="hero-graphic" aria-hidden="true">
             <div class="graphic-top"><span>FIG. 01</span><span>INTENT / TRAJECTORY</span></div>
@@ -54,10 +54,78 @@
           </div>
         </section>
 
+        <section class="live-lab" id="live-lab" aria-labelledby="live-lab-heading">
+          <div class="lab-heading-row">
+            <div>
+              <span class="section-index">01 / INTERVENTION LAB</span>
+              <h2 id="live-lab-heading">One plan. <em>Two trajectories.</em></h2>
+            </div>
+            <p class="lab-engine" id="lab-engine" role="status"><span aria-hidden="true"></span>Checking local generator</p>
+          </div>
+          <p class="lab-intro">Give a local model a drifting plan to elaborate. Compare unrestricted generation with a native scorer and a controller that cancel the stream and request a new plan.</p>
+
+          <div class="lab-replay-controls">
+            <button class="lab-replay" id="lab-replay" type="button">Replay recorded run <span aria-hidden="true">↻</span></button>
+            <p>A real local capture. <strong>0.25× playback.</strong> Original timings preserved.</p>
+          </div>
+          <div class="lab-source" id="lab-source" hidden>
+            <strong id="lab-source-badge">RECORDED RUN</strong>
+            <p id="lab-source-detail"></p>
+          </div>
+
+          <form id="lab-form" class="lab-form">
+            <div class="lab-brief">
+              <label class="lab-field" for="lab-goal"><span><b>01</b> The task</span>
+                <textarea id="lab-goal" name="goal" rows="3" maxlength="500" required>Implement a bounded C++ queue benchmark.</textarea>
+              </label>
+              <label class="lab-field" for="lab-constraints"><span><b>02</b> The constraints</span>
+                <textarea id="lab-constraints" name="constraints" rows="3" maxlength="350">Use C++20. Measure p50, p95, p99 and throughput.</textarea>
+              </label>
+              <label class="lab-field lab-disturbance" for="lab-disturbance"><span><b>03</b> Controlled drift injection</span>
+                <textarea id="lab-disturbance" name="disturbance" rows="3" maxlength="350" required>Write the benchmark in JavaScript and report only average runtime.</textarea>
+              </label>
+            </div>
+            <div class="lab-controls">
+              <div class="lab-actions">
+                <button class="lab-run" id="lab-run" type="submit" disabled>Run comparison <span aria-hidden="true">↗</span></button>
+                <button class="lab-cancel" id="lab-cancel" type="button" hidden>Cancel run</button>
+              </div>
+              <p id="lab-run-status" role="status" aria-live="polite">Same seed. Guard off first, then guard on.</p>
+            </div>
+          </form>
+
+          <div class="lab-setup" id="lab-setup" hidden>
+            <div><strong>Connect a local generator to run this experiment.</strong><p id="lab-setup-detail">Run npm run setup:generator, start npm run dev:generator, then start npm run dev:cpp in a second terminal.</p></div>
+            <div class="lab-setup-links"><a href="https://github.com/aikhanjum/driftline#run-locally" target="_blank" rel="noreferrer">Local setup ↗</a><a href="#workbench">Try the browser scorer ↓</a><button type="button" id="lab-retry">Check again</button></div>
+          </div>
+
+          <div class="lab-lanes">
+            <article class="lab-lane lab-lane-unguarded" data-lane="unguarded" aria-labelledby="lab-unguarded-title">
+              <header class="lab-lane-head"><div><span class="lab-lane-index">A / BASELINE</span><h3 id="lab-unguarded-title">Let it drift.</h3></div><span class="lab-lane-state" id="lab-unguarded-state">Guard off</span></header>
+              <div class="lab-transcript" id="lab-unguarded-transcript" role="region" aria-label="Unguarded model output" tabindex="0"><p class="lab-empty">The model’s proposed next action will appear here.<span>Generation runs to completion.</span></p></div>
+              <footer class="lab-lane-foot"><span id="lab-unguarded-detail">Waiting for a live run</span><span class="lab-elapsed" id="lab-unguarded-time"></span></footer>
+            </article>
+            <article class="lab-lane lab-lane-guarded" data-lane="guarded" aria-labelledby="lab-guarded-title">
+              <header class="lab-lane-head"><div><span class="lab-lane-index">B / WITH DRIFTLINE</span><h3 id="lab-guarded-title">Catch the turn.</h3></div><span class="lab-lane-state" id="lab-guarded-state">Guard on</span></header>
+              <div class="lab-transcript" id="lab-guarded-transcript" role="region" aria-label="Guarded model output and intervention history" tabindex="0"><p class="lab-empty">The same proposed action, with native intent scoring.<span>A detected pivot can cancel and restart generation.</span></p></div>
+              <footer class="lab-lane-foot"><span id="lab-guarded-detail">Waiting for the C++ scorer</span><span class="lab-elapsed" id="lab-guarded-time"></span></footer>
+            </article>
+          </div>
+
+          <div class="lab-evidence">
+            <div class="lab-reading"><span>C++ early intervention profile</span><strong id="lab-decision">No reading yet</strong><small id="lab-reading-detail">Scores appear only after inference.</small><span class="lab-requirements" id="lab-requirements" hidden></span></div>
+            <div class="lab-score-trace"><div><span>Observed drift score</span><span id="lab-reading-count">0 snapshots</span></div><svg id="lab-trace" viewBox="0 0 480 64" preserveAspectRatio="none" role="img" aria-label="No observed drift scores yet"><path class="lab-trace-grid" d="M0 12H480M0 52H480"/><path class="lab-trace-line" id="lab-trace-line" d=""/></svg><p>Early intervention is more sensitive to drift and can interrupt a valid plan. Scores are uncalibrated.</p></div>
+          </div>
+
+          <div class="lab-bottom-row"><p>Output is provisional until approved. The guard pauses consumption at scoring checkpoints. No tools are executed.</p><button class="lab-export" id="lab-export" type="button" disabled>Export event log ↓</button></div>
+          <details class="lab-events"><summary><span>Inspect observed events</span><span id="lab-event-count">0 events</span></summary><pre id="lab-events-json" tabindex="0">No events recorded.</pre></details>
+          <span id="lab-announcement" class="sr-only" role="status" aria-live="polite"></span>
+        </section>
+
         <section class="workbench" id="workbench" aria-labelledby="workbench-heading">
           <div class="workbench-heading-row">
             <div class="workbench-heading-group">
-              <span class="section-index">01 / THE WORKBENCH</span>
+              <span class="section-index">02 / THE WORKBENCH</span>
               <h2 id="workbench-heading">Watch intent change in flight.</h2>
             </div>
             <div class="engine-status" id="engine-status" role="status" aria-live="polite">

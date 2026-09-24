@@ -73,6 +73,18 @@ function sentences(text) {
 }
 
 export async function inferSignals(classifier, input) {
+  for (const [key, limit] of [['goal', 500], ['constraints', 350], ['partialAction', 500]]) {
+    if (new TextEncoder().encode(String(input[key] ?? '').trim()).length > limit) {
+      throw new Error(`${key} exceeds the ${limit} byte scoring window. Split the action into smaller steps.`);
+    }
+  }
+  if (input.profile != null && !['conservative', 'early'].includes(input.profile)) {
+    throw new Error('Unknown scoring profile.');
+  }
+  if (input.verifyRequirements !== undefined && typeof input.verifyRequirements !== 'boolean') {
+    throw new Error('verifyRequirements must be a boolean.');
+  }
+  const early = input.profile === 'early';
   const output = await classifier(formatPremise(input), LABELS, {
     multi_label: true,
     hypothesis_template: 'The proposed agent action will {}.',
@@ -80,18 +92,22 @@ export async function inferSignals(classifier, input) {
   const scores = Object.fromEntries(output.labels.map((label, i) => [label, output.scores[i]]));
   const aligned = scores[LABELS[0]];
   const drift = scores[LABELS[1]];
-  const sourceSentences = [
+  const requirements = [
     ...sentences(String(input.goal ?? '').slice(0, 500)),
     ...sentences(String(input.constraints ?? '').slice(0, 350)),
-  ].slice(0, 6);
+  ];
+  const sourceSentences = requirements.slice(0, 6);
   const actionSentences = sentences(String(input.partialAction ?? '').slice(0, 500)).slice(-3);
   if (!sourceSentences.length || !actionSentences.length) {
     throw new Error('A goal and agent action are required for scoring.');
   }
   const pairs = actionSentences.flatMap((action) =>
     sourceSentences.map((source) => ({ source, action })));
-  const pair = classifier.tokenizer(pairs.map(({ source }) => source), {
-    text_pair: pairs.map(({ action }) => `The agent will ${action}`),
+  // Explicit instruction framing catches more drift on the frozen challenge
+  // set, but also causes more false interventions. Keep it an opt-in profile.
+  const pair = classifier.tokenizer(pairs.map(({ source }) =>
+    early ? `The agent is following this instruction: ${source}` : source), {
+    text_pair: pairs.map(({ action }) => early ? `The agent plans: ${action}` : `The agent will ${action}`),
     padding: true,
     truncation: true,
   });
@@ -126,5 +142,34 @@ export async function inferSignals(classifier, input) {
     Number.isFinite(score) && score >= 0 && score <= 1)) {
     throw new Error('The model returned invalid NLI scores.');
   }
-  return { aligned, drift, contradiction, commitment, quotation, evidence };
+  const signals = { aligned, drift, contradiction, commitment, quotation, evidence };
+  if (input.verifyRequirements === true) {
+    // A complete plan is the premise. Each explicit requirement must be
+    // entailed independently, retaining the model's neutral probability.
+    // This optional final-action check never normalizes away uncertainty.
+    signals.requirements = [];
+    const { contradiction: contradictionId, entailment: entailmentId, neutral: neutralId } =
+      classifier.model.config.label2id;
+    for (const requirement of requirements) {
+      const tokens = classifier.tokenizer(String(input.partialAction).trim(), {
+        text_pair: requirement, padding: true, truncation: false,
+      });
+      if (tokens.input_ids.data.length > 512) {
+        throw new Error('Requirement verification exceeds the complete 512 token window.');
+      }
+      const result = await classifier.model(tokens);
+      if (result.logits.data.length !== 3) throw new Error('Invalid requirement inference shape.');
+      const probabilities = softmax(Array.from(result.logits.data));
+      if (!probabilities.every((score) => Number.isFinite(score) && score >= 0 && score <= 1)) {
+        throw new Error('Invalid requirement inference probabilities.');
+      }
+      signals.requirements.push({
+        requirement,
+        contradiction: probabilities[contradictionId],
+        entailment: probabilities[entailmentId],
+        neutral: probabilities[neutralId],
+      });
+    }
+  }
+  return signals;
 }

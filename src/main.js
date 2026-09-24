@@ -3,6 +3,9 @@ import { scenarios } from './scenarios.js';
 import { DriftScorer } from './scorer-client.js';
 import { NodeScorer } from './node-scorer.js';
 import { PivotGate } from './pivot-gate.js';
+import { initLiveLab } from './live-lab.js';
+
+initLiveLab();
 
 const nodeMode = import.meta.env.DEV && import.meta.env.VITE_DRIFTLINE_FAST === '1';
 const cppMode = import.meta.env.DEV && import.meta.env.VITE_DRIFTLINE_CPP === '1';
@@ -503,4 +506,15 @@ async function initializeScorer() {
   }
 }
 
-void initializeScorer();
+if (nodeMode || cppMode || !('IntersectionObserver' in window)) {
+  void initializeScorer();
+} else {
+  // Watching a captured run should not download the separate browser model.
+  setEngineStatus('loading', 'Scorer loads when the workbench opens');
+  const observer = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    observer.disconnect();
+    void initializeScorer();
+  }, { rootMargin: '160px' });
+  observer.observe(document.querySelector('#workbench'));
+}
